@@ -1,7 +1,21 @@
 library(shiny)
+library(ggplot2)
+library(lubridate)
+library(haven)
+
 # list of water quality parameters to plot
-WQlist <- c("Select", "Conductivity", "Temperature", "Turbidity", "Depth", "Nitrate", "Total Suspended Solids", "Total Organic Carbon", "Dissolved Organic Carbon", "Soil Water Content", "Soil Conductivity", "Soil Temperature")
+WQlist <- c("Select", "Conductivity", "Temperature", "Turbidity", "Depth", 
+            "Nitrate", "Total Suspended Solids", "Total Organic Carbon", 
+            "Dissolved Organic Carbon", "Soil Water Content", "Soil Conductivity",
+            "Soil Temperature")
+#List of monitoring towers
 Towers <- c("Select", "1", "2")
+
+#Load in data file - seems like it can be from a URL
+Tx15 <- read.csv("BMPTripod1_Min_15.dat", stringsAsFactors = FALSE)
+Tx15$TIMESTAMP <- as.Date(Tx15$TIMESTAMP)
+Tx15flt <- Tx15
+
 # User Interface Definition 
 ui <- fluidPage(
   
@@ -20,24 +34,37 @@ ui <- fluidPage(
     
     sidebarPanel(
       #Tower Selector
-      selectInput("towerID", "Select Tower ID", Towers),
-      #Date time input
-      textInput("fromDatetime", "From:", value = "YYYY-MM-DD HH:MM:SS" ),
-      textInput("toDatetime", "To:", value = "YYYY-MM-DD HH:MM:SS" ),
+      radioButtons("towerID", "Select Tower:",
+                 c("Tower 1" = "t1" ,
+                  "Tower 2" = "t2")),
+      
+      #Date Time Selector
+      textInput("fromDate", "From:", value = "2024-05-13" ),
+      textInput("toDate", "To:", value = "2024-06-01" ),
+         
       #1st Parameter
       selectInput("WQP1", "Water Quality Parameter 1:", WQlist), 
       #2nd Parameter
       selectInput("WQP2", "Water Quality Parameter 2:", WQlist),
-      width = 3,
+      actionButton("action", "Plot"),
+      width = 2,
+      
     ),
     
     mainPanel(
       width = 9,
       #Tabs
       tabsetPanel(
-        tabPanel("Plot", plotOutput("VarPlot")),
+        tabPanel("Plot", plotOutput("")),
         tabPanel("Table", tableOutput("VarTable")), 
-        tabPanel("Camera Feed",imageOutput(""))
+        tabPanel("Camera Feed",imageOutput("")), 
+        tabPanel("Calibration Data", 
+                 # fluidRow(
+                 #   column(width = 4,
+                 #     fluidRow(
+                 #       fileInput("file", "Calibration File:")),
+                 #   )),
+                  plotOutput("calib"))
       )
     )
   ),
@@ -47,8 +74,38 @@ ui <- fluidPage(
 
 # Server Definition
 server <- shinyServer(function(input, output, session) {
-
+  
+#Filter to selected date range:
+  rangeDates <- reactive({
+    Tx15flt <- filter(Tx15, between(Tx15$TIMESTAMP, 
+                        as.Date(input$fromDate),
+                        as.Date(input$toDate)
+                      ))
+    ggplot() +
+      geom_point(data = Tx15flt, aes(x=TIMESTAMP, y = NO3eq)) +
+      # geom_point(data = CalibData, aes(x =TIMESTAMP, y = NO3eq))+
+      # scale_x_date(date_labels = "%b-%d-%Y") +
+      labs(title = "Nitrate Calibration Data at Station X") +
+      theme_classic()
+    
+                })|> 
+    bindEvent(input$action, ignoreNULL = FALSE)
+ 
+  
+  output$calib <- renderPlot({
+    rangeDates()
+    
+    })
 })
+  
+
+    
+
+
+  
+
+  
+
 
 
 # End with call 
