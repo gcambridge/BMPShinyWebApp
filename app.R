@@ -50,6 +50,8 @@ ui <- fluidPage(
       #2nd Parameter
       selectInput("WQP2", "Water Quality Parameter 2 (Y):", WQlist),
       actionButton("plotParams", "Plot"),
+      
+      
       width = 2,
     ),
     
@@ -60,7 +62,9 @@ ui <- fluidPage(
         tabPanel("Plot", plotOutput("plot")),
       
         
-        tabPanel("Table", tableOutput("VarTable")), 
+        tabPanel("Table", 
+                 DT::dataTableOutput("table")
+                ), 
         tabPanel("Camera Feed",imageOutput("")), 
         tabPanel("Calibration Data", 
                  fluidRow(
@@ -72,8 +76,6 @@ ui <- fluidPage(
       )
     )
   ),
-  
-  
 )
 
 # Server Definition
@@ -100,8 +102,22 @@ server <- shinyServer(function(input, output, session) {
     parameterPlot()
     
   }) 
+  
+  
+  
+  genTable <- reactive({
+    Tx15flt <- filter(Tx15, between(Tx15$TIMESTAMP,
+                                    ymd_hms(input$fromDate),
+                                    ymd_hms(input$toDate)
+    ))
     
- #plot calibration plot
+     })|> 
+    bindEvent(input$genPlot, ignoreNULL = FALSE)
+  output$table <- DT::renderDataTable(Tx15flt)
+  
+
+    
+ #plot calibration plot 
   calibratePlot <- reactive({
     #make this a function?
     Tx15flt <- filter(Tx15, between(Tx15$TIMESTAMP, 
@@ -129,10 +145,6 @@ server <- shinyServer(function(input, output, session) {
                 })|> 
     bindEvent(input$plotCalib, ignoreNULL = FALSE)
  
-  
-  
-  
-  
   output$calib <- renderPlot({
     calibratePlot()
     
